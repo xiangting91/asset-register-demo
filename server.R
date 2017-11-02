@@ -8,6 +8,7 @@ library(stringr)
 library(dygraphs)
 library(DT)
 library(leaflet)
+library(RColorBrewer)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
@@ -101,15 +102,28 @@ shinyServer(function(input, output) {
         df <- dat() %>% 
             mutate(
                 popup = str_c(
-                    "<b>", asset_name, "</b>",
+                    "<b>", ministry, "</b>",
+                    "<br><b>", asset_name, "</b>",
                     "<br><b>Replacement Cost:</b> ", repl_cost_base,
                     "<br><b>Replacement Year:</b> ", repl_fy),
-                `Years from Today` = repl_fy - year(now())) 
+                `Years to Next Replacement` = repl_fy - year(now())) 
         
-        pal <- colorNumeric("OrRd", df$`Years from Today`, reverse = TRUE)
+        #generate 14 distinct colours for Ministries
+        n <- 14
+        qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+        col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
         
-        df %>% 
-            sample_n(100) %>% 
+        
+        pal <- switch(input$asset_heatmap_col_by,
+                      "Years to Next Replacement"= colorNumeric("OrRd", df$`Years from Today`, reverse = TRUE),
+                      "Ministry"= colorFactor(col_vector, df$ministry, reverse = TRUE))
+        
+        dfselect <- switch(input$asset_heatmap_col_by,
+                           "Ministry"= df[df$repl_fy==input$asset_heatmap_year,],
+                           "Years to Next Replacement"= df[sample(nrow(df),100),])
+        
+        dfselect %>% 
+            #sample_n(100) %>% 
             leaflet() %>% 
             addTiles(urlTemplate = "http://maps-{s}.onemap.sg/v2/Grey/{z}/{x}/{y}.png") %>% 
             addCircleMarkers(
@@ -117,14 +131,24 @@ shinyServer(function(input, output) {
                 radius = ~log(repl_cost_base), 
                 color = "black",
                 weight = 2,
-                fillColor = ~pal(`Years from Today`),
+                fillColor = ~pal(
+                    switch(
+                    input$asset_heatmap_col_by,
+                    "Years to Next Replacement"=`Years to Next Replacement`,
+                    "Ministry"=`ministry`
+                    )),
                 fillOpacity = 0.5,
                 # clusterOptions = markerClusterOptions(),
                 popup = ~popup
             ) %>% 
-            addLegend("bottomright", pal = pal, values = ~`Years from Today`,
-                      title = "Years from Today",
-                      opacity = 0.9
+            setView(lat=1.36, lng=103.85, zoom = 12) %>% 
+
+            addLegend("bottomright", pal = pal, values = switch(
+                input$asset_heatmap_col_by,
+                "Years to Next Replacement"= ~`Years to Next Replacement`,
+                "Ministry"= ~`ministry`), 
+                title = input$asset_heatmap_col_by,
+                opacity = 0.9
             )
     })
 })

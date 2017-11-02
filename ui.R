@@ -89,15 +89,32 @@ shinyUI(fluidPage(navbarPage(
         
         dataTableOutput("repl_cost_tbl")
     ),
-    
     tabPanel(
         "Asset Heatmap",
-        selectInput(
-            "asset_heatmap_col_by",
-            "Colour By:",
-            choices = c("Years to Next Replacement", "Age of Asset"),
-            selected = "Years to Next Replacement"
+        fluidRow(
+            column(
+                width = 2,
+                selectInput(
+                    "asset_heatmap_col_by",
+                    "Colour By:",
+                    choices = c("Years to Next Replacement", "Ministry"),
+                    selected = "Years to Next Replacement"
+                )
+            ),
+            column(
+                width = 2,
+                sliderInput(
+                    "asset_heatmap_year",
+                    "Year of Reference (Ministry View)",
+                    min=2017, max=2200, value=2017,step=1
+                )
+            )
         ),
-        leafletOutput("repl_map")
+        fluidRow(
+            column(
+                width = 12,
+                leafletOutput("repl_map",width="100%",height="650px")
+            )
+        )
     )
 )))
